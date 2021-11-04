@@ -15,8 +15,8 @@ struct EmojiArtModel {
     // hashable cuz we want to put it in a set
     struct Emoji: Identifiable, Hashable {
         let text: String
-        var x: Int
-        var y: Int
+        var x: Int // offset from the center
+        var y: Int // offset from the center
         var size: Int
         let id: Int
         
