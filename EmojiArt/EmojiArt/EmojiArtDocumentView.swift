@@ -26,20 +26,23 @@ struct EmojiArtDocumentView: View {
                 // if image is nil, it will be a big white square
                 Color.white.overlay {
                     OptionalImage(uiImage: document.backgroundImage)
-                        .position(convertFromEmojiCoordinates((0,0), in: geometry))
+                        .scaleEffect(zoomScale)
+                        .position(convertFromEmojiCoordinates((0,0), in: geometry)
+                        )
                 }
+                .gesture(doubleTapToZoom(in: geometry.size))
                 if document.backgroundImageFetchStatus == .fetching {
                     ProgressView().scaleEffect(2)
                 } else {
                     ForEach(document.emojis) { emoji in
                         Text(emoji.text)
                             .font(.system(size: fontSize(for: emoji)))
+                            .scaleEffect(zoomScale)
                             .position(position(for: emoji, in: geometry))
                     }
                 }
-                
-                
             }
+            .clipped() // stay in your space don't draw outside
             .onDrop(of: [.plainText,.url,.image], isTargeted: nil) { providers, location in
                 return drop(providers: providers, at: location, in: geometry)
             }
@@ -65,11 +68,33 @@ struct EmojiArtDocumentView: View {
                     document.addEmoji(
                         String(emoji),
                         at: convertToEmojiCoordinates(location, in: geometry),
-                        size: defaultEmojiFontSize
+                        size: defaultEmojiFontSize / zoomScale
                     )
                 }
             }
         }
+    }
+    
+    @State private var zoomScale: CGFloat = 1
+    
+    // zoom to fit the image to the screen
+    private func zoomToFit(_ image: UIImage?, in size: CGSize) {
+        if let image = image, image.size.width > 0, image.size.height > 0, size.width > 0, size.height > 0 {
+            let hZoom = size.width / image.size.width
+            let vZoom = size.height / image.size.height
+            zoomScale = min(hZoom, vZoom)
+        }
+    }
+    
+    private func doubleTapToZoom(in size: CGSize) -> some Gesture {
+        //discrete gestures
+        TapGesture(count: 2)
+            .onEnded({
+                withAnimation {
+                    zoomToFit(document.backgroundImage, in: size)
+                }
+                
+            })
     }
     
     var palette: some View {
@@ -84,8 +109,8 @@ struct EmojiArtDocumentView: View {
     private func convertToEmojiCoordinates(_ location: CGPoint, in geometry: GeometryProxy) -> (x: Int, y: Int) {
         let center = geometry.frame(in: .local).center
         let location = CGPoint(
-            x: location.x - center.x,
-            y: location.y - center.y
+            x: (location.x - center.x)  * zoomScale,
+            y: (location.y - center.y)  * zoomScale
         )
         return (Int(location.x), Int(location.y))
     }
@@ -93,8 +118,8 @@ struct EmojiArtDocumentView: View {
     private func convertFromEmojiCoordinates(_ location: (x: Int, y: Int), in geometry: GeometryProxy) -> CGPoint {
         let center = geometry.frame(in: .local).center
         return CGPoint(
-            x: center.x + CGFloat(location.x),
-            y: center.y + CGFloat(location.y)
+            x: center.x + CGFloat(location.x) * zoomScale,
+            y: center.y + CGFloat(location.y) * zoomScale
         )
     }
     
